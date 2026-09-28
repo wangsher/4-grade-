@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phonics & Vocab Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom styles for animations and specific UI tweaks */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0fdf4;
+            background-image: radial-gradient(#bbf7d0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .toast-enter {
+            animation: slideInDown 0.3s ease-out forwards;
+        }
+
+        @keyframes slideInDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-12">
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 hidden px-6 py-3 rounded-full text-white font-semibold shadow-lg text-center transition-all duration-300">
+        <span id="toastMessage"></span>
+    </div>
+
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h1 class="text-3xl font-bold text-emerald-600 flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap"></i> Vocab Explorer
+            </h1>
+            <div class="flex gap-2 bg-slate-100 p-1 rounded-xl">
+                <button id="btnWordMode" class="px-4 py-2 rounded-lg bg-white shadow text-emerald-600 font-semibold transition-all">Words</button>
+                <button id="btnSentenceMode" class="px-4 py-2 rounded-lg text-slate-500 font-semibold hover:bg-slate-200 transition-all">Sentences</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 mt-8">
+        
+        <!-- Word Practice Mode Container -->
+        <div id="wordModeContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+            <!-- Cards will be injected here -->
+        </div>
+
+        <!-- Sentence Practice Mode Container -->
+        <div id="sentenceModeContainer" class="hidden flex flex-col items-center justify-center bg-white rounded-3xl shadow-xl p-8 max-w-2xl mx-auto text-center border-4 border-emerald-100">
+            <div id="smEmoji" class="text-8xl md:text-9xl mb-6 bg-slate-50 w-40 h-40 flex items-center justify-center rounded-3xl shadow-inner border border-slate-100 mx-auto">
+                🍎
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-bold text-slate-700 mb-6 flex items-center justify-center gap-3">
+                <button onclick="speakCurrentSentence()" class="text-emerald-500 hover:text-emerald-600 transition-colors bg-emerald-50 rounded-full w-12 h-12 flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-volume-high text-2xl"></i>
+                </button>
+                <span id="smQuestion">Is it an apple?</span>
+            </h2>
+            
+            <div class="bg-blue-50 text-blue-800 px-6 py-3 rounded-2xl mb-8 font-medium border border-blue-200 w-full">
+                <p>Say <strong class="text-emerald-600 text-xl">"Yes, it is"</strong> or <strong class="text-rose-600 text-xl">"No, it is not"</strong></p>
+            </div>
+
+            <button id="btnSentenceMic" class="bg-rose-500 hover:bg-rose-600 text-white rounded-full w-24 h-24 flex items-center justify-center shadow-lg shadow-rose-500/30 transition-all mb-6">
+                <i class="fa-solid fa-microphone text-4xl"></i>
+            </button>
+            
+            <p id="smTranscript" class="text-lg text-slate-500 min-h-[28px] italic"></p>
+
+            <button onclick="generateNextSentence()" class="mt-8 px-6 py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-xl font-semibold transition-colors flex items-center gap-2">
+                Next Question <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+
+    </main>
+
+    <script>
+        // Vocabulary List with corresponding emojis
+        const vocabList = [
+            { word: 'bird', icon: '🐦' },
+            { word: 'cat', icon: '🐱' },
+            { word: 'banana', icon: '🍌' },
+            { word: 'fish', icon: '🐟' },
+            { word: 'egg', icon: '🥚' },
+            { word: 'dog', icon: '🐶' },
+            { word: 'apple', icon: '🍎' },
+            { word: 'cake', icon: '🎂' },
+            { word: 'milk', icon: '🥛' },
+            { word: 'lion', icon: '🦁' },
+            { word: 'rabbit', icon: '🐰' },
+            { word: 'pig', icon: '🐷' },
+            { word: 'marker', icon: '🖍️' },
+            { word: 'pencil', icon: '✏️' },
+            { word: 'book', icon: '📖' },
+            { word: 'ruler', icon: '📏' },
+            { word: 'pen', icon: '🖊️' }
+        ];
+
+        // State variables
+        let currentMode = 'words'; // 'words' or 'sentences'
+        let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+        
+        // Sentence Mode State
+        let smCurrentActualWord = null;
+        let smCurrentAskedWord = null;
+        let smExpectedAnswer = null; // 'yes' or 'no'
+
+        // Check Speech API Support
+        if (!SpeechRecognition) {
+            alert("Your browser does not support Speech Recognition. Please use Chrome, Edge, or Safari.");
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+        }
+
+        // UI Elements
+        const wordModeContainer = document.getElementById('wordModeContainer');
+        const sentenceModeContainer = document.getElementById('sentenceModeContainer');
+        const btnWordMode = document.getElementById('btnWordMode');
+        const btnSentenceMode = document.getElementById('btnSentenceMode');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Render Word Cards
+        function renderWordCards() {
+            wordModeContainer.innerHTML = '';
+            vocabList.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-3xl shadow-sm border border-slate-100 p-4 sm:p-6 flex flex-col items-center text-center card-hover transition-all duration-300';
+                
+                card.innerHTML = `
+                    <div class="text-6xl sm:text-7xl mb-4 select-none drop-shadow-md">${item.icon}</div>
+                    <h3 class="text-xl sm:text-2xl font-bold text-slate-700 mb-4 capitalize">${item.word}</h3>
+                    <div class="flex gap-3 w-full justify-center">
+                        <button onclick="speakWord('${item.word}')" class="flex-1 bg-sky-100 hover:bg-sky-200 text-sky-600 p-3 rounded-2xl transition-colors shadow-sm" title="Listen">
+                            <i class="fa-solid fa-volume-high text-xl"></i>
+                        </button>
+                        <button onclick="practiceWord('${item.word}', this)" class="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-600 p-3 rounded-2xl transition-colors shadow-sm relative mic-btn" title="Speak">
+                            <i class="fa-solid fa-microphone text-xl"></i>
+                        </button>
+                    </div>
+                    <p class="transcript text-xs text-slate-400 mt-3 h-4 italic overflow-hidden"></p>
+                `;
+                wordModeContainer.appendChild(card);
+            });
+        }
+
+        // Mode Switching
+        btnWordMode.addEventListener('click', () => {
+            currentMode = 'words';
+            wordModeContainer.classList.remove('hidden');
+            sentenceModeContainer.classList.add('hidden');
+            
+            btnWordMode.classList.replace('text-slate-500', 'text-emerald-600');
+            btnWordMode.classList.replace('hover:bg-slate-200', 'bg-white');
+            btnWordMode.classList.add('shadow');
+            
+            btnSentenceMode.classList.replace('text-emerald-600', 'text-slate-500');
+            btnSentenceMode.classList.replace('bg-white', 'hover:bg-slate-200');
+            btnSentenceMode.classList.remove('shadow');
+            
+            stopListening();
+        });
+
+        btnSentenceMode.addEventListener('click', () => {
+            currentMode = 'sentences';
+            wordModeContainer.classList.add('hidden');
+            sentenceModeContainer.classList.remove('hidden');
+            
+            btnSentenceMode.classList.replace('text-slate-500', 'text-emerald-600');
+            btnSentenceMode.classList.replace('hover:bg-slate-200', 'bg-white');
+            btnSentenceMode.classList.add('shadow');
+            
+            btnWordMode.classList.replace('text-emerald-600', 'text-slate-500');
+            btnWordMode.classList.replace('bg-white', 'hover:bg-slate-200');
+            btnWordMode.classList.remove('shadow');
+
+            stopListening();
+            generateNextSentence();
+        });
+
+        // Text to Speech
+        function speakWord(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9; // Slightly slower for clearer pronunciation
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function speakCurrentSentence() {
+            const article = ['apple', 'egg'].includes(smCurrentAskedWord) ? 'an' : 'a';
+            speakWord(`Is it ${article} ${smCurrentAskedWord}?`);
+        }
+
+        // Utility: Show Toast
+        function showToast(message, type = 'success') {
+            toastMessage.textContent = message;
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full text-white font-semibold shadow-lg text-center toast-enter ${type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function stopListening() {
+            if (isListening && recognition) {
+                recognition.stop();
+                isListening = false;
+                
+                // Reset all mic buttons
+                document.querySelectorAll('.mic-btn').forEach(btn => {
+                    btn.classList.remove('pulse-animation', 'bg-rose-500', 'text-white');
+                    btn.classList.add('bg-rose-100', 'text-rose-600');
+                });
+                
+                const btnSmMic = document.getElementById('btnSentenceMic');
+                btnSmMic.classList.remove('pulse-animation');
+                btnSmMic.querySelector('i').className = 'fa-solid fa-microphone text-4xl';
+            }
+        }
+
+        // Practice single word
+        function practiceWord(targetWord, btnElement) {
+            if (!recognition) return alert("Speech recognition not supported.");
+            
+            stopListening(); // Stop any ongoing recognition
+
+            const transcriptEl = btnElement.parentElement.nextElementSibling;
+            transcriptEl.textContent = "Listening...";
+            
+            btnElement.classList.remove('bg-rose-100', 'text-rose-600');
+            btnElement.classList.add('bg-rose-500', 'text-white', 'pulse-animation');
+
+            isListening = true;
+            recognition.start();
+
+            recognition.onresult = (event) => {
+                const speechResult = event.results[0][0].transcript.toLowerCase().trim();
+                const cleanResult = speechResult.replace(/[.,!?]/g, '');
+                transcriptEl.textContent = `You said: "${cleanResult}"`;
+
+                if (cleanResult.includes(targetWord.toLowerCase())) {
+                    showToast('🌟 Excellent pronunciation!', 'success');
+                    btnElement.parentElement.parentElement.classList.add('bg-emerald-50');
+                    setTimeout(() => btnElement.parentElement.parentElement.classList.remove('bg-emerald-50'), 2000);
+                } else {
+                    showToast('Almost there! Try again.', 'error');
+                }
+            };
+
+            recognition.onspeechend = () => {
+                stopListening();
+            };
+
+            recognition.onerror = (event) => {
+                transcriptEl.textContent = "Didn't catch that.";
+                stopListening();
+            };
+        }
+
+        // Sentence Practice Logic
+        function generateNextSentence() {
+            // Pick a random actual item
+            const actualItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+            smCurrentActualWord = actualItem.word;
+            
+            // 50% chance it's a YES answer, 50% NO
+            const isYes = Math.random() > 0.5;
+            smExpectedAnswer = isYes ? 'yes' : 'no';
+
+            if (isYes) {
+                smCurrentAskedWord = smCurrentActualWord;
+            } else {
+                let diffItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+                while(diffItem.word === smCurrentActualWord) {
+                    diffItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+                }
+                smCurrentAskedWord = diffItem.word;
+            }
+
+            const article = ['apple', 'egg'].includes(smCurrentAskedWord) ? 'an' : 'a';
+
+            document.getElementById('smEmoji').textContent = actualItem.icon;
+            document.getElementById('smQuestion').textContent = `Is it ${article} ${smCurrentAskedWord}?`;
+            document.getElementById('smTranscript').textContent = '';
+            
+            // Read question automatically
+            setTimeout(speakCurrentSentence, 500);
+        }
+
+        document.getElementById('btnSentenceMic').addEventListener('click', function() {
+            if (!recognition) return alert("Speech recognition not supported.");
+            
+            if (isListening) {
+                stopListening();
+                return;
+            }
+
+            const transcriptEl = document.getElementById('smTranscript');
+            transcriptEl.textContent = "Listening... Speak now!";
+            
+            this.classList.add('pulse-animation');
+            this.querySelector('i').className = 'fa-solid fa-ear-listen text-4xl';
+
+            isListening = true;
+            recognition.start();
+
+            recognition.onresult = (event) => {
+                const speechResult = event.results[0][0].transcript.toLowerCase().trim();
+                const cleanResult = speechResult.replace(/[.,!?]/g, '');
+                transcriptEl.textContent = `You said: "${cleanResult}"`;
+
+                // Logic to check answer
+                let isCorrect = false;
+                if (smExpectedAnswer === 'yes') {
+                    if (cleanResult.includes('yes')) isCorrect = true;
+                } else {
+                    if (cleanResult.includes('no')) isCorrect = true;
+                }
+
+                if (isCorrect) {
+                    showToast('🎉 Great job! Correct!', 'success');
+                    setTimeout(generateNextSentence, 2000);
+                } else {
+                    showToast('Oops! Try again.', 'error');
+                }
+            };
+
+            recognition.onspeechend = () => {
+                stopListening();
+            };
+
+            recognition.onerror = (event) => {
+                document.getElementById('smTranscript').textContent = "Microphone error or no speech detected.";
+                stopListening();
+            };
+        });
+
+        // Initialization
+        window.onload = () => {
+            renderWordCards();
+        };
+
+    </script>
+</body>
+</html>
